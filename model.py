@@ -4,13 +4,16 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from data import Tokenizer
+
+
 @dataclass
 class GPTConfig:
-    vocab_size: int = 8
-    max_seq_len: int = 151
+    vocab_size: int = len(Tokenizer.tokens)
+    max_seq_len: int = 151 #max_full_sequence_length(32)
     d_model: int = 64
     n_heads: int = 4
-    n_layers: int = 4
+    n_layers: int = 2
     ff_hidden: int = 192
     dropout: float = 0.0
 
@@ -38,7 +41,7 @@ class RotaryEmbedding(nn.Module):
     def forward(self, q: torch.Tensor, k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # q, k: [batch, heads, tokens, head_dim]. Pair adjacent coordinates
         positions = torch.arange(start = 0, end = q.size(-2), device=q.device, dtype=torch.float32)
-        angles = torch.outer(positions, self.inv_freq)
+        angles = torch.outer(positions, self.inv_freq)#dont care about the red line, it is just a warning about the type of the tensor/
         cosine = angles.cos()[None, None, :, :]
         sine = angles.sin()[None, None, :, :]
 
@@ -55,7 +58,7 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         self.n_heads = config.n_heads
         self.head_dim = config.d_model // config.n_heads
-        self.qkv = nn.Linear(config.d_model, 3 * config.d_model, bias=False)# Compute Q, K, and V together.
+        self.qkv = nn.Linear(config.d_model, 3 * config.d_model, bias=False)#you only mutiply once
         self.proj = nn.Linear(config.d_model, config.d_model, bias=False)
         self.rope = RotaryEmbedding(self.head_dim)
         self.dropout = nn.Dropout(config.dropout)
